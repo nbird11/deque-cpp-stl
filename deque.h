@@ -59,11 +59,11 @@ namespace custom
       class iterator;
       iterator begin()
       {
-         return iterator();
+         return iterator(0, *this);
       }
       iterator end()
       {
-         return iterator();
+         return iterator(numElements, *this);
       }
 
       // 
@@ -119,30 +119,38 @@ namespace custom
       // array index from deque index
       int iaFromID(int id) const
       {
-         return -1;
+         assert(0 <= id && id < numElements);
+         assert(0 <= iaFront && iaFront < numCells * numBlocks);
+         int ia = (id + iaFront) % (numCells * numBlocks);
+         assert(0 <= ia && ia < numCells * numBlocks);
+         return ia;
       }
 
       // block index from deque index
       int ibFromID(int id) const
       {
-         return -1;
+         int ib = iaFromID(id) / numCells;
+         assert(0 <= ib && ib < numBlocks);
+         return ib;
       }
 
       // cell index from deque index
       int icFromID(int id) const
       {
-         return -1;
+         int ic = iaFromID(id) % numCells;
+         assert(0 <= ic && ic < numCells);
+         return ic;
       }
 
       // reallocate
       void reallocate(int numBlocksNew);
 
-      A    alloc;                // use alloacator for memory allocation
+      A      alloc;              // use alloacator for memory allocation
       size_t numCells;           // number of cells in a block
       size_t numBlocks;          // number of blocks in the data array
       size_t numElements;        // number of elements in the deque
-      int iaFront;               // array-centered index of the front of the deque
-      T** data;                 // array of arrays
+      int    iaFront;            // array-centered index of the front of the deque
+      T** data;               // array of arrays
    };
 
    /**************************************************
@@ -167,8 +175,11 @@ namespace custom
       iterator()
       {}
       iterator(int id, deque* d)
-      {}
-      iterator(const iterator& rhs)
+      {
+         this.id = id;
+         this.d = d;
+      }
+      iterator(const iterator& rhs) : id(rhs.id), d(rhs.d)
       {}
 
       //
@@ -176,21 +187,23 @@ namespace custom
       //
       iterator& operator = (const iterator& rhs)
       {
+         id = rhs.id;
+         d = rhs.d;
          return *this;
       }
 
       // 
       // Compare
       //
-      bool operator != (const iterator& rhs) const { return true; }
-      bool operator == (const iterator& rhs) const { return true; }
+      bool operator != (const iterator& rhs) const { return id != rhs.id && d != rhs.d; }
+      bool operator == (const iterator& rhs) const { return id == rhs.id && d == rhs.d; }
 
       // 
       // Access
       //
       T& operator * ()
       {
-         return *(new T);
+         // return d[id];
       }
 
       // 
@@ -198,27 +211,43 @@ namespace custom
       //
       int operator - (iterator it) const
       {
-         return 99;
+         return id - it.id;
       }
       iterator& operator += (int offset)
       {
+         if (offset > 0)
+         {
+            while (offset--)
+               ++(*this);
+         }
+         else if (offset < 0)
+         {
+            while (offset++)
+               --(*this);
+         }
          return *this;
       }
       iterator& operator ++ ()
       {
+         ++id;
          return *this;
       }
       iterator operator ++ (int postfix)
       {
-         return *this;
+         iterator temp(*this);
+         ++id;
+         return temp;
       }
       iterator& operator -- ()
       {
+         --id;
          return *this;
       }
       iterator operator -- (int postfix)
       {
-         return *this;
+         iterator temp(*this);
+         --id;
+         return temp;
       }
 
    private:
@@ -233,7 +262,9 @@ namespace custom
     ****************************************/
    template <typename T, typename A>
    deque <T, A> ::deque(deque& rhs)
-   {}
+   {
+      *this = rhs;
+   }
 
    /*****************************************
     * DEQUE :: COPY-ASSIGN
@@ -304,11 +335,47 @@ namespace custom
 
    /*****************************************
     * DEQUE :: REALLOCATE
-    * Remove all the elements from a deque
+    * Increase the size of the array of pointers
     ****************************************/
    template <typename T, typename A>
    void deque <T, A> ::reallocate(int numBlocksNew)
-   {}
+   {
+      // 1. Allocate a new array of pointers that is the requested size
+      T** dataNew = (T**)alloc.allocate(numBlocksNew * sizeof(T*));
+
+      // 2. Copy over the pointers, unwrapping as we go
+      int ibNew = 0;
+      for (int idOld = 0; idOld < numElements; idOld += numCells)
+      {
+         dataNew[ibNew] = data[ibFromID(idOld)];
+         ibNew++;
+      }
+
+      // 3. Set all the block pointers to NULL when there are no blocks to point to
+      while (ibNew < numBlocksNew)
+         dataNew[ibNew] = nullptr;
+      
+      // 4. If the back element is in the front element's block, then move it
+      if (numElements > 0
+            && ibFromID(0) == ibFromID(numElements - 1)
+            && icFromID(0) > icFromID(numElements - 1))
+      {
+         int ibFrontOld = ibFromID(0);
+         int ibBackOld = ibFromID(numElements - 1);
+         int ibBackNew = numElements / numCells;
+         dataNew[ibBackNew] = new T[numCells];
+         for (int ic = 0; ic <= icFromID(numElements - 1); ic++)
+            dataNew[ibBackNew][ic] = std::move(data[ibBackOld][ic]);
+      }
+
+      // 5. Change the deque's member variables with the new values
+      if (data)
+         delete data;
+         //alloc.deallocate((T*)data, numBlocks);
+      data = dataNew;
+      numBlocks = numBlocksNew;
+      iaFront = iaFront % numCells;
+   }
 
 
 
