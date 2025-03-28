@@ -89,12 +89,12 @@ public:
       test_subscript_writeWrapped();
 
       // Insert
-      //test_pushback_empty();
-      //test_pushback_roomNoWrap();
-      //test_pushback_newBlock();
-      //test_pushback_wrap();
-      //test_pushback_complex();
-      //test_pushfront_empty();
+      test_pushback_empty();
+      test_pushback_roomNoWrap();
+      test_pushback_newBlock();
+      test_pushback_wrap();
+      test_pushback_complex();
+      test_pushfront_empty();
       //test_pushfront_roomNoWrap();
       //test_pushfront_newBlock();
       //test_pushfront_wrap();
@@ -102,18 +102,18 @@ public:
       //test_pushfront_bigWrap();
 
       // Remove
-      //test_clear_empty();
-      //test_clear_standard();
-      //test_popfront_unwrap();
-      //test_popfront_standard();
-      //test_popfront_lastElement();
-      //test_popfront_lastInBlock(); 
-      //test_popfront_complex();
-      //test_popback_unwrap();
-      //test_popback_standard();
-      //test_popback_lastElement();
-      //test_popback_lastInBlock();
-      //test_popback_complex();
+      test_clear_empty();
+      test_clear_standard();
+      test_popfront_unwrap();
+      test_popfront_standard();
+      test_popfront_lastElement();
+      test_popfront_lastInBlock();
+      test_popfront_complex();
+      test_popback_unwrap();
+      test_popback_standard();
+      test_popback_lastElement();
+      test_popback_lastInBlock();
+      test_popback_complex();
 
       // Status
       test_size_empty();
@@ -1645,7 +1645,7 @@ public:
    // add an element that will cause the deque to reallocaate. This will cause an unwrap
    void test_pushback_complex()
    {  // setup
-         //                          iaFront
+      //                             iaFront
       //   +----+----+----+   +----+----+----+   +----+----+----+
       //   | 67 | 79 | 85 |   |    | 11 | 28 |   | 31 | 49 | 59 |
       //   +----+----+----+   +----+----+----+   +----+----+----+  

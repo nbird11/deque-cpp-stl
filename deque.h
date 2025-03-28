@@ -120,7 +120,7 @@ namespace custom
       // array index from deque index
       int iaFromID(int id) const
       {
-         if (numElements) assert(0 <= id && id < numElements);
+         if (numElements) assert(0 <= id && id <= numElements);  // Can be one ahead of the end for push_back
          assert(0 <= iaFront && iaFront < numCells * numBlocks);
          int ia = (id + iaFront) % (numCells * numBlocks);
          assert(0 <= ia && ia < numCells * numBlocks);
@@ -301,7 +301,21 @@ namespace custom
     ****************************************/
    template <typename T, typename A>
    void deque <T, A> ::push_back(const T& t)
-   {}
+   {
+      // 1. Reallocate the array of blocks as needed
+      if (numElements == numBlocks * numCells
+          || icFromID(numElements) == 0 && numBlocks <= (numElements + numCells) / numCells)
+         reallocate(numBlocks ? numBlocks * 2 : 1);
+
+      // 2. Allocate a new block as needed
+      int ib = ibFromID(numElements);
+      if (!data[ib])
+         data[ib] = alloc.allocate(sizeof(T) * numCells);
+
+      // 3. Assign the value into the block
+      new ((void*)(&(data[ib][icFromID(numElements)]))) T(t);
+      numElements++;
+   }
 
    /*****************************************
     * DEQUE :: PUSH_BACK - move
@@ -309,7 +323,21 @@ namespace custom
     ****************************************/
    template <typename T, typename A>
    void deque <T, A> ::push_back(T&& t)
-   {}
+   {
+      // 1. Reallocate the array of blocks as needed
+      if (numElements == numBlocks * numCells
+          || icFromID(numElements) == 0 && numBlocks <= (numElements + numCells) / numCells)
+         reallocate(numBlocks ? numBlocks * 2 : 1);
+
+      // 2. Allocate a new block as needed
+      int ib = ibFromID(numElements);
+      if (!data[ib])
+         data[ib] = alloc.allocate(sizeof(T) * numCells);
+
+      // 3. Move the value into the block
+      new ((void*)(&(data[ib][icFromID(numElements)]))) T(std::move(t));
+      numElements++;
+   }
 
    /*****************************************
     * DEQUE :: PUSH_FRONT
@@ -317,7 +345,24 @@ namespace custom
     ****************************************/
    template <typename T, typename A>
    void deque <T, A> ::push_front(const T& t)
-   {}
+   {
+      //// 1. Reallocate the array of blocks as needed
+      //if (numElements == numBlocks * numCells
+      //    || icFromID(-1) == numCells - 1 && numBlocks <= (numElements + numCells) / numCells)
+      //   reallocate(numBlocks ? numBlocks * 2 : 1);
+
+      //// 2. Allocate a new block as needed
+      //int ib = ibFromID(-1);
+      //if (!data[ib])
+      //   data[ib] = alloc.allocate(sizeof(T) * numCells);
+
+      //// 3. Assign the value into the block
+      //new ((void*)(&(data[ib][icFromID(-1)]))) T(t);
+      //numElements++;
+      //iaFront--;
+      //if (iaFront < 0)
+      //   iaFront += numCells * numBlocks;
+   }
 
    /*****************************************
     * DEQUE :: PUSH_FRONT - move
@@ -333,7 +378,21 @@ namespace custom
     ****************************************/
    template <typename T, typename A>
    void deque <T, A> ::clear()
-   {}
+   {
+      for (size_t id = 0; id < numElements; id++)
+         alloc.destroy(&data[ibFromID(id)][icFromID(id)]);
+
+      for (size_t ib = 0; ib < numBlocks; ib++)
+      {
+         assert(data != nullptr);
+         if (data[ib])
+         {
+            alloc.destroy(&data[ib]);
+            data[ib] = nullptr;
+         }
+      }
+      numElements = 0;
+   }
 
    /*****************************************
     * DEQUE :: POP FRONT
@@ -341,7 +400,22 @@ namespace custom
     ****************************************/
    template <typename T, typename A>
    void deque <T, A> ::pop_front()
-   {}
+   {
+      size_t idRemove = 0;
+
+      alloc.destroy(&data[ibFromID(idRemove)][icFromID(idRemove)]);
+
+      if (numElements == 1
+          || (icFromID(idRemove) == numCells - 1 && ibFromID(idRemove) != ibFromID(numCells - 1)))
+      {
+         alloc.destroy(&data[ibFromID(idRemove)]);
+         data[ibFromID(idRemove)] = nullptr;
+      }
+
+      numElements--;
+      iaFront++;
+      iaFront %= numCells * numBlocks;
+   }
 
    /*****************************************
     * DEQUE :: POP BACK
@@ -349,7 +423,20 @@ namespace custom
     ****************************************/
    template <typename T, typename A>
    void deque <T, A> ::pop_back()
-   {}
+   {
+      size_t idRemove = numElements - 1;
+
+      alloc.destroy(&data[ibFromID(idRemove)][icFromID(idRemove)]);
+
+      if (numElements == 1
+          || (icFromID(idRemove) == 0 && ibFromID(idRemove) != ibFromID(0)))
+      {
+         alloc.destroy(&data[ibFromID(idRemove)]);
+         data[ibFromID(idRemove)] = nullptr;
+      }
+
+      numElements--;
+   }
 
    /*****************************************
     * DEQUE :: REALLOCATE
