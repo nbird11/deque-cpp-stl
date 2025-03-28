@@ -95,11 +95,11 @@ public:
       test_pushback_wrap();
       test_pushback_complex();
       test_pushfront_empty();
-      //test_pushfront_roomNoWrap();
-      //test_pushfront_newBlock();
-      //test_pushfront_wrap();
-      //test_pushfront_complex();
-      //test_pushfront_bigWrap();
+      test_pushfront_roomNoWrap();
+      test_pushfront_newBlock();
+      test_pushfront_wrap();
+      //test_pushfront_complex();  // 
+      //test_pushfront_bigWrap();  // 
 
       // Remove
       test_clear_empty();

@@ -24,6 +24,46 @@
 #include <cassert>
 #include <memory>   // for std::allocator
 
+//#define PRINT_IMPL  // deleteme
+#ifdef PRINT_IMPL
+   #include <iostream>
+   #include <string>
+
+   // Forward declarations
+   template<typename T>
+   void print_impl(const char* names, const T& value);
+
+   template<typename T, typename... Args>
+   void print_impl(const char* names, const T& value, const Args&... args);
+
+   // Helper function to get next name from comma-separated list
+   inline std::string get_next_name(const char*& names) {
+      while (*names == ' ') ++names;  // Skip leading spaces
+      const char* start = names;
+      while (*names && (*names != ',' || *(names+1) != ' ')) ++names;
+      size_t len = names - start;
+      if (*names) names += 2;  // Skip ", "
+      return std::string(start, len);
+   }
+
+   // Base case for single argument
+   template<typename T>
+   void print_impl(const char* names, const T& value) {
+      std::cout << get_next_name(names) << ": " << value << std::endl;
+   }
+
+   // Recursive case for multiple arguments
+   template<typename T, typename... Args>
+   void print_impl(const char* names, const T& value, const Args&... args) {
+      std::cout << get_next_name(names) << ": " << value << ", ";
+      print_impl(names, args...);
+   }
+
+   #define print(...) print_impl(#__VA_ARGS__, __VA_ARGS__)
+#else
+  #define print(...) 
+#endif // PRINT_IMPL
+
 class TestDeque;    // forward declaration for TestDeque unit test class
 
 namespace custom
@@ -120,9 +160,15 @@ namespace custom
       // array index from deque index
       int iaFromID(int id) const
       {
-         if (numElements) assert(0 <= id && id <= numElements);  // Can be one ahead of the end for push_back
+         // Can be one after the end for push_back and one before the beginning for push_front
+         if (numElements) {
+            if (id == -1) return iaFront - 1;  // Special case for push_front
+            assert(0 <= id && id <= numElements);
+         }
          assert(0 <= iaFront && iaFront < numCells * numBlocks);
-         int ia = (id + iaFront) % (numCells * numBlocks);
+         print(id, iaFront, (id + iaFront), numCells, numBlocks, (numCells * numBlocks), ((id + iaFront) % (numCells * numBlocks)));
+         int totalSize = numCells * numBlocks;
+         int ia = ((id + iaFront + totalSize) % totalSize);
          assert(0 <= ia && ia < numCells * numBlocks);
          return ia;
       }
@@ -130,7 +176,10 @@ namespace custom
       // block index from deque index
       int ibFromID(int id) const
       {
-         int ib = iaFromID(id) / numCells;
+         int ia = iaFromID(id);
+         int totalSize = numCells * numBlocks;
+         if (ia < 0) ia += totalSize;
+         int ib = ia / numCells;
          assert(0 <= ib && ib < numBlocks);
          return ib;
       }
@@ -346,22 +395,22 @@ namespace custom
    template <typename T, typename A>
    void deque <T, A> ::push_front(const T& t)
    {
-      //// 1. Reallocate the array of blocks as needed
-      //if (numElements == numBlocks * numCells
-      //    || icFromID(-1) == numCells - 1 && numBlocks <= (numElements + numCells) / numCells)
-      //   reallocate(numBlocks ? numBlocks * 2 : 1);
+      // 1. Reallocate the array of blocks as needed
+      if (numElements == numBlocks * numCells
+          || icFromID(-1) == numCells - 1 && numBlocks <= (numElements + numCells) / numCells)
+         reallocate(numBlocks ? numBlocks * 2 : 1);
 
-      //// 2. Allocate a new block as needed
-      //int ib = ibFromID(-1);
-      //if (!data[ib])
-      //   data[ib] = alloc.allocate(sizeof(T) * numCells);
+      // 2. Allocate a new block as needed
+      int ib = ibFromID(-1);
+      if (!data[ib])
+         data[ib] = alloc.allocate(sizeof(T) * numCells);
 
-      //// 3. Assign the value into the block
-      //new ((void*)(&(data[ib][icFromID(-1)]))) T(t);
-      //numElements++;
-      //iaFront--;
-      //if (iaFront < 0)
-      //   iaFront += numCells * numBlocks;
+      // 3. Assign the value into the block
+      new ((void*)(&(data[ib][icFromID(-1)]))) T(t);
+      numElements++;
+      iaFront--;
+      if (iaFront < 0)
+         iaFront += numCells * numBlocks;
    }
 
    /*****************************************
