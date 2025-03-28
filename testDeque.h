@@ -35,11 +35,11 @@ public:
       test_icFromID_3x3();
       test_iaFromID_4x1();
       test_iaFromID_3x3();
-      //test_realloc_emptyToOne();
-      //test_realloc_oneToTwo();
-      //test_realloc_shift();
-      //test_realloc_wrapBetweenBlocks();
-      //test_realloc_complex();
+      test_realloc_emptyToOne();
+      test_realloc_oneToTwo();
+      test_realloc_shift();
+      test_realloc_wrapBetweenBlocks();
+      test_realloc_complex();
 
       // Construct
       test_construct_default();

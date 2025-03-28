@@ -359,37 +359,66 @@ namespace custom
    void deque <T, A> ::reallocate(int numBlocksNew)
    {
       // 1. Allocate a new array of pointers that is the requested size
+      /**********************************************************************
+      *  +----+----+   +----+----+
+      *  |    | 31 |   | 55 | 67 |
+      *  +----+----+   +----+----+
+      *           \       /
+      *          +----+----+               +----+----+----+----+
+      *          |  \ | /  |      ===>     |    |    |    |    |
+      *          +----+----+               +----+----+----+----+
+      ***********************************************************************/
       T** dataNew = (T**)this->alloc.allocate(numBlocksNew * sizeof(T*));
 
       // 2. Copy over the pointers, unwrapping as we go
+      /**********************************************************************
+      *     3             0    1    |          3        0    1   : id
+      *  +----+----+   +----+----+  |  +----+----+   +----+----+
+      *  | 31 |    |   | 55 | 67 |  |  |    | 31 |   | 55 | 67 |
+      *  +----+----+   +----+----+  |  +----+----+   +----+----+
+      *           \       /         |          \   /
+      *          +----+----+       ===>     +----+----+----+----+
+      *          |  \ | /  |        |       |   /|\   |    |    |
+      *          +----+----+        |       +----+----+----+----+
+      * (Blocks don't ever move once created.)
+      ***********************************************************************/
       int ibNew = 0;
-      for (int idOld = 0; idOld < numElements; idOld += numCells)
-      {
+      for (int idOld = 0;
+           idOld < numElements;
+           idOld += numCells, ++ibNew)
          dataNew[ibNew] = data[ibFromID(idOld)];
-         ibNew++;
-      }
 
       // 3. Set all the block pointers to NULL when there are no blocks to point to
+      /**********************************************************************
+      *  +----+----+   +----+----+    +----+----+   +----+----+
+      *  |    | 31 |   | 55 | 67 |    |    | 31 |   | 55 | 67 |
+      *  +----+----+   +----+----+    +----+----+   +----+----+
+      *          \   /                         \   /
+      *       +----+----+----+----+         +----+----+----+----+
+      *       |   /|\   | ?? | ?? |  ===>   |   /|\   | // | // |
+      *       +----+----+----+----+         +----+----+----+----+
+      * ?? = garbage
+      * // = nullptr
+      ***********************************************************************/
       while (ibNew < numBlocksNew)
-         dataNew[ibNew] = nullptr;
+         dataNew[ibNew++] = nullptr;
 
       // 4. If the back element is in the front element's block, then move it
-      if (numElements > 0
-          && ibFromID(0) == ibFromID(numElements - 1)
-          && icFromID(0) > icFromID(numElements - 1))
-      {
-         int ibFrontOld = ibFromID(0);
-         int ibBackOld = ibFromID(numElements - 1);
-         int ibBackNew = numElements / numCells;
-         dataNew[ibBackNew] = new T[numCells];
-         for (int ic = 0; ic <= icFromID(numElements - 1); ic++)
-            dataNew[ibBackNew][ic] = std::move(data[ibBackOld][ic]);
-      }
+      // NOTE: Shouldn't this never happen?
+      //if (numElements > 0
+      //    && ibFromID(0) == ibFromID(numElements - 1)
+      //    && icFromID(0) > icFromID(numElements - 1))
+      //{
+      //   int ibFrontOld = ibFromID(0);
+      //   int ibBackOld = ibFromID(numElements - 1);
+      //   int ibBackNew = numElements / numCells;
+      //   dataNew[ibBackNew] = new T[numCells];
+      //   for (int ic = 0; ic <= icFromID(numElements - 1); ic++)
+      //      dataNew[ibBackNew][ic] = std::move(data[ibBackOld][ic]);
+      //}
 
       // 5. Change the deque's member variables with the new values
-      if (data)
-         delete data;
-         //alloc.deallocate((T*)data, numBlocks);
+      if (data) delete data;
       data = dataNew;
       numBlocks = numBlocksNew;
       iaFront = iaFront % numCells;
