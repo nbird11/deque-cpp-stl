@@ -42,9 +42,9 @@ public:
       //test_realloc_complex();
 
       // Construct
-      //test_construct_default();
-      //test_constructCopy_empty();
-      //test_constructCopy_standard();
+      test_construct_default();
+      test_constructCopy_empty();
+      //test_constructCopy_standard();  // depends on assign
       //test_constructCopy_wrapped();
       
       // Destruct
@@ -56,7 +56,7 @@ public:
       //test_destruct_standard();
 
       // Assign
-      //test_assign_emptyToEmpty();
+      //test_assign_emptyToEmpty();  // depends on push_back and pop_back
       //test_assign_emptyToStandard();
       //test_assign_standardToStandard();
       //test_assign_standardToEmpty();
@@ -82,11 +82,11 @@ public:
       //test_front_readStandard();
       //test_front_writeStandard();
       //test_front_readReadOnly();
-      //test_subscript_readStandard();
-      //test_subscript_readWrapped();
-      //test_subscript_readReadOnly();
-      //test_subscript_writeStandard();
-      //test_subscript_writeWrapped();
+      test_subscript_readStandard();
+      test_subscript_readWrapped();
+      //test_subscript_readReadOnly();  // depends on copy constructor
+      test_subscript_writeStandard();
+      test_subscript_writeWrapped();
 
       // Insert
       //test_pushback_empty();
@@ -116,10 +116,10 @@ public:
       //test_popback_complex();
 
       // Status
-      //test_size_empty();
-      //test_size_standard();
-      //test_empty_empty();
-      //test_empty_standard();
+      test_size_empty();
+      test_size_standard();
+      test_empty_empty();
+      test_empty_standard();
 
 
       report("Deque");

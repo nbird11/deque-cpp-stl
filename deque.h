@@ -18,6 +18,7 @@
  ************************************************************************/
 
 #pragma once
+#pragma warning(disable : 4267)  // conversion from size_t to int
 
 // Debug stuff
 #include <cassert>
@@ -41,9 +42,9 @@ namespace custom
       // Construct
       //
       deque(const A& a = A())
-      {
-         data = nullptr;
-      }
+         : alloc(a), data(nullptr),
+         numCells(16), numBlocks(0), numElements(0), iaFront(0)
+      {}
       deque(deque& rhs);
       ~deque()
       {}
@@ -59,11 +60,11 @@ namespace custom
       class iterator;
       iterator begin()
       {
-         return iterator(0, *this);
+         return iterator(0, this);
       }
       iterator end()
       {
-         return iterator(numElements, *this);
+         return iterator(numElements, this);
       }
 
       // 
@@ -87,11 +88,11 @@ namespace custom
       }
       T& operator[](int id)
       {
-         return *(new T);
+         return data[ibFromID(id)][icFromID(id)];
       }
       const T& operator[](int id) const
       {
-         return *(new T);
+         return data[ibFromID(id)][icFromID(id)];
       }
 
       //
@@ -112,14 +113,14 @@ namespace custom
       //
       // Status
       //
-      size_t size()  const { return 99; }
-      bool   empty() const { return false; }
+      size_t size()  const { return numElements; }
+      bool   empty() const { return numElements == 0; }
 
    private:
       // array index from deque index
       int iaFromID(int id) const
       {
-         assert(0 <= id && id < numElements);
+         if (numElements) assert(0 <= id && id < numElements);
          assert(0 <= iaFront && iaFront < numCells * numBlocks);
          int ia = (id + iaFront) % (numCells * numBlocks);
          assert(0 <= ia && ia < numCells * numBlocks);
@@ -145,12 +146,12 @@ namespace custom
       // reallocate
       void reallocate(int numBlocksNew);
 
-      A      alloc;              // use alloacator for memory allocation
-      size_t numCells;           // number of cells in a block
-      size_t numBlocks;          // number of blocks in the data array
-      size_t numElements;        // number of elements in the deque
-      int    iaFront;            // array-centered index of the front of the deque
-      T** data;               // array of arrays
+      A alloc;               // use alloacator for memory allocation
+      size_t numCells;       // number of cells in a block
+      size_t numBlocks;      // number of blocks in the data array
+      size_t numElements;    // number of elements in the deque
+      int iaFront;           // array-centered index of the front of the deque
+      T** data;              // array of arrays
    };
 
    /**************************************************
@@ -174,11 +175,8 @@ namespace custom
       //
       iterator()
       {}
-      iterator(int id, deque* d)
-      {
-         this.id = id;
-         this.d = d;
-      }
+      iterator(int id, deque* d) : id(id), d(d)
+      {}
       iterator(const iterator& rhs) : id(rhs.id), d(rhs.d)
       {}
 
@@ -203,7 +201,7 @@ namespace custom
       //
       T& operator * ()
       {
-         // return d[id];
+         return (*d)[id];
       }
 
       // 
@@ -274,6 +272,26 @@ namespace custom
    template <typename T, typename A>
    deque <T, A>& deque <T, A> :: operator = (deque& rhs)
    {
+      alloc = rhs.alloc;
+      numCells = rhs.numCells;
+      numBlocks = rhs.numBlocks;
+      numElements = rhs.numElements;
+      iaFront = rhs.iaFront;
+
+      iterator itLHS = begin();
+      iterator itRHS = rhs.begin();
+
+      for (; itLHS != end() && itRHS != rhs.end(); ++itLHS, ++itRHS)
+         *itLHS = *itRHS;
+
+      // lhs longer, remove the extra elements
+      for (; itLHS != end(); ++itLHS)
+         pop_back();
+
+      // rhs longer, add the extra elements
+      for (; itRHS != rhs.end(); ++itRHS)
+         push_back(*itRHS);
+
       return *this;
    }
 
@@ -341,7 +359,7 @@ namespace custom
    void deque <T, A> ::reallocate(int numBlocksNew)
    {
       // 1. Allocate a new array of pointers that is the requested size
-      T** dataNew = (T**)alloc.allocate(numBlocksNew * sizeof(T*));
+      T** dataNew = (T**)this->alloc.allocate(numBlocksNew * sizeof(T*));
 
       // 2. Copy over the pointers, unwrapping as we go
       int ibNew = 0;
@@ -354,11 +372,11 @@ namespace custom
       // 3. Set all the block pointers to NULL when there are no blocks to point to
       while (ibNew < numBlocksNew)
          dataNew[ibNew] = nullptr;
-      
+
       // 4. If the back element is in the front element's block, then move it
       if (numElements > 0
-            && ibFromID(0) == ibFromID(numElements - 1)
-            && icFromID(0) > icFromID(numElements - 1))
+          && ibFromID(0) == ibFromID(numElements - 1)
+          && icFromID(0) > icFromID(numElements - 1))
       {
          int ibFrontOld = ibFromID(0);
          int ibBackOld = ibFromID(numElements - 1);
