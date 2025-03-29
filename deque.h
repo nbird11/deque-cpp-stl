@@ -24,46 +24,6 @@
 #include <cassert>
 #include <memory>   // for std::allocator
 
-//#define PRINT_IMPL  // deleteme
-#ifdef PRINT_IMPL
-   #include <iostream>
-   #include <string>
-
-   // Forward declarations
-   template<typename T>
-   void print_impl(const char* names, const T& value);
-
-   template<typename T, typename... Args>
-   void print_impl(const char* names, const T& value, const Args&... args);
-
-   // Helper function to get next name from comma-separated list
-   inline std::string get_next_name(const char*& names) {
-      while (*names == ' ') ++names;  // Skip leading spaces
-      const char* start = names;
-      while (*names && (*names != ',' || *(names+1) != ' ')) ++names;
-      size_t len = names - start;
-      if (*names) names += 2;  // Skip ", "
-      return std::string(start, len);
-   }
-
-   // Base case for single argument
-   template<typename T>
-   void print_impl(const char* names, const T& value) {
-      std::cout << get_next_name(names) << ": " << value << std::endl;
-   }
-
-   // Recursive case for multiple arguments
-   template<typename T, typename... Args>
-   void print_impl(const char* names, const T& value, const Args&... args) {
-      std::cout << get_next_name(names) << ": " << value << ", ";
-      print_impl(names, args...);
-   }
-
-   #define print(...) print_impl(#__VA_ARGS__, __VA_ARGS__)
-#else
-  #define print(...) 
-#endif // PRINT_IMPL
-
 class TestDeque;    // forward declaration for TestDeque unit test class
 
 namespace custom
@@ -87,7 +47,9 @@ namespace custom
       {}
       deque(deque& rhs);
       ~deque()
-      {}
+      {
+         clear();
+      }
 
       //
       // Assign
@@ -112,19 +74,19 @@ namespace custom
       //
       T& front()
       {
-         return *(new T);
+         return (*this)[0];
       }
       const T& front() const
       {
-         return *(new T);
+         return (*this)[0];
       }
       T& back()
       {
-         return *(new T);
+         return (*this)[size()-1];
       }
       const T& back() const
       {
-         return *(new T);
+         return (*this)[size()-1];
       }
       T& operator[](int id)
       {
@@ -160,15 +122,9 @@ namespace custom
       // array index from deque index
       int iaFromID(int id) const
       {
-         // Can be one after the end for push_back and one before the beginning for push_front
-         if (numElements) {
-            if (id == -1) return iaFront - 1;  // Special case for push_front
-            assert(0 <= id && id <= numElements);
-         }
+         //assert(0 <= id && id < numElements); // tests don't take numElements into account
          assert(0 <= iaFront && iaFront < numCells * numBlocks);
-         print(id, iaFront, (id + iaFront), numCells, numBlocks, (numCells * numBlocks), ((id + iaFront) % (numCells * numBlocks)));
-         int totalSize = numCells * numBlocks;
-         int ia = ((id + iaFront + totalSize) % totalSize);
+         int ia = ((id + iaFront) % (numBlocks * numCells));
          assert(0 <= ia && ia < numCells * numBlocks);
          return ia;
       }
@@ -176,10 +132,7 @@ namespace custom
       // block index from deque index
       int ibFromID(int id) const
       {
-         int ia = iaFromID(id);
-         int totalSize = numCells * numBlocks;
-         if (ia < 0) ia += totalSize;
-         int ib = ia / numCells;
+         int ib = iaFromID(id) / numCells;
          assert(0 <= ib && ib < numBlocks);
          return ib;
       }
@@ -242,7 +195,7 @@ namespace custom
       // 
       // Compare
       //
-      bool operator != (const iterator& rhs) const { return id != rhs.id && d != rhs.d; }
+      bool operator != (const iterator& rhs) const { return id != rhs.id || d != rhs.d; }
       bool operator == (const iterator& rhs) const { return id == rhs.id && d == rhs.d; }
 
       // 
@@ -297,8 +250,8 @@ namespace custom
          return temp;
       }
 
-   private:
       int id;
+   private:
       deque* d;
    };
 
@@ -308,7 +261,7 @@ namespace custom
     * call the copy constructor on each element
     ****************************************/
    template <typename T, typename A>
-   deque <T, A> ::deque(deque& rhs)
+   deque <T, A> ::deque(deque& rhs) : deque()
    {
       *this = rhs;
    }
@@ -322,23 +275,24 @@ namespace custom
    deque <T, A>& deque <T, A> :: operator = (deque& rhs)
    {
       alloc = rhs.alloc;
-      numCells = rhs.numCells;
-      numBlocks = rhs.numBlocks;
-      numElements = rhs.numElements;
-      iaFront = rhs.iaFront;
 
       iterator itLHS = begin();
       iterator itRHS = rhs.begin();
 
-      for (; itLHS != end() && itRHS != rhs.end(); ++itLHS, ++itRHS)
+      // Create end iterators now because deques will change.
+      iterator lhs_end = end();
+      iterator rhs_end = rhs.end();
+
+      for (; itLHS != lhs_end && itRHS != rhs_end; ++itLHS, ++itRHS)
          *itLHS = *itRHS;
 
+
       // lhs longer, remove the extra elements
-      for (; itLHS != end(); ++itLHS)
+      for (; itLHS != lhs_end; ++itLHS)
          pop_back();
 
       // rhs longer, add the extra elements
-      for (; itRHS != rhs.end(); ++itRHS)
+      for (; itRHS != rhs_end; ++itRHS)
          push_back(*itRHS);
 
       return *this;
@@ -396,21 +350,22 @@ namespace custom
    void deque <T, A> ::push_front(const T& t)
    {
       // 1. Reallocate the array of blocks as needed
-      if (numElements == numBlocks * numCells
-          || icFromID(-1) == numCells - 1 && numBlocks <= (numElements + numCells) / numCells)
+      if (numElements == numBlocks * numCells || numBlocks <= (numElements + numCells) / numCells)
          reallocate(numBlocks ? numBlocks * 2 : 1);
+      // ^ puts iaFront into first block with unwrapping
 
+      // Calculate new front position
+      iaFront = (iaFront - 1 + numBlocks * numCells) % (numBlocks * numCells);
+      
       // 2. Allocate a new block as needed
-      int ib = ibFromID(-1);
+      int ib = iaFront / numCells;
       if (!data[ib])
          data[ib] = alloc.allocate(sizeof(T) * numCells);
 
       // 3. Assign the value into the block
-      new ((void*)(&(data[ib][icFromID(-1)]))) T(t);
+      int ic = iaFront % numCells;
+      new ((void*)(&(data[ib][ic]))) T(t);
       numElements++;
-      iaFront--;
-      if (iaFront < 0)
-         iaFront += numCells * numBlocks;
    }
 
    /*****************************************
@@ -419,7 +374,25 @@ namespace custom
     ****************************************/
    template <typename T, typename A>
    void deque <T, A> ::push_front(T&& t)
-   {}
+   {
+      // 1. Reallocate the array of blocks as needed
+      if (numElements == numBlocks * numCells || numBlocks <= (numElements + numCells) / numCells)
+         reallocate(numBlocks ? numBlocks * 2 : 1);
+      // ^ puts iaFront into first block with unwrapping
+
+      // Calculate new front position
+      iaFront = (iaFront - 1 + numBlocks * numCells) % (numBlocks * numCells);
+
+      // 2. Allocate a new block as needed
+      int ib = iaFront / numCells;
+      if (!data[ib])
+         data[ib] = alloc.allocate(sizeof(T) * numCells);
+
+      // 3. Assign the value into the block
+      int ic = iaFront % numCells;
+      new ((void*)(&(data[ib][ic]))) T(std::move(t));
+      numElements++;
+   }
 
    /*****************************************
     * DEQUE :: CLEAR

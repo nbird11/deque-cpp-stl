@@ -19,8 +19,6 @@
 #include <memory>
 #include "spy.h"
 
-#include <deque>
-
 class TestDeque : public UnitTest
 {
 public:
@@ -44,23 +42,23 @@ public:
       // Construct
       test_construct_default();
       test_constructCopy_empty();
-      //test_constructCopy_standard();  // depends on assign
-      //test_constructCopy_wrapped();
+      test_constructCopy_standard();
+      test_constructCopy_wrapped();
       
       // Destruct
-      //test_destruct_default();
-      //test_destruct_emptyBlock();
-      //test_destruct_fullBlock();
-      //test_destruct_partBlock();
-      //test_destruct_twoBlock();
-      //test_destruct_standard();
+      test_destruct_default();
+      test_destruct_emptyBlock();
+      test_destruct_fullBlock();
+      test_destruct_partBlock();
+      test_destruct_twoBlock();
+      test_destruct_standard();
 
       // Assign
-      //test_assign_emptyToEmpty();  // depends on push_back and pop_back
-      //test_assign_emptyToStandard();
-      //test_assign_standardToStandard();
-      //test_assign_standardToEmpty();
-      //test_assign_wrapped();
+      test_assign_emptyToEmpty();
+      test_assign_emptyToStandard();
+      test_assign_standardToStandard();
+      test_assign_standardToEmpty();
+      test_assign_wrapped();
 
       // Iterator
       test_iterator_begin_empty();
@@ -74,17 +72,17 @@ public:
       test_iterator_difference_standard();
 
       // Access
-      //test_back_readStandard();
-      //test_back_readWrapped();
-      //test_back_readReadOnly();
-      //test_back_writeStandard();
-      //test_back_writeWrapped();
-      //test_front_readStandard();
-      //test_front_writeStandard();
-      //test_front_readReadOnly();
+      test_back_readStandard();
+      test_back_readWrapped();
+      test_back_readReadOnly();
+      test_back_writeStandard();
+      test_back_writeWrapped();
+      test_front_readStandard();
+      test_front_writeStandard();
+      test_front_readReadOnly();
       test_subscript_readStandard();
       test_subscript_readWrapped();
-      //test_subscript_readReadOnly();  // depends on copy constructor
+      test_subscript_readReadOnly();
       test_subscript_writeStandard();
       test_subscript_writeWrapped();
 
@@ -98,8 +96,8 @@ public:
       test_pushfront_roomNoWrap();
       test_pushfront_newBlock();
       test_pushfront_wrap();
-      //test_pushfront_complex();  // 
-      //test_pushfront_bigWrap();  // 
+      test_pushfront_complex();
+      test_pushfront_bigWrap();
 
       // Remove
       test_clear_empty();
